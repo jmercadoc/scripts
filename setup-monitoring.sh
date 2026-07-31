@@ -29,13 +29,14 @@ require_ubuntu
 init_target_user
 
 apt_install \
-  procps psmisc iproute2 pciutils usbutils lsof strace jq curl \
+  procps psmisc iproute2 pciutils usbutils lsof strace jq curl python3 \
   htop sysstat iotop iftop nethogs ncdu \
   lm-sensors smartmontools nvme-cli
 
 apt_install_optional btop nvtop glances duf nmon atop ipmitool
 
 install_root_file "$SCRIPT_DIR/bin/ai-monitor" /usr/local/bin/ai-monitor 0755
+install_root_file "$SCRIPT_DIR/chat-llama.py" /usr/local/bin/llama-chat 0755
 
 # Ubuntu distribuye sysstat deshabilitado en algunas versiones.
 if [[ -f /etc/default/sysstat ]]; then

@@ -109,6 +109,39 @@ export LLAMA_API_KEY
 
 El proceso permanece en primer plano. Dentro de `tmux`, usa `Ctrl-b` y después `d` para dejarlo ejecutándose. Los logs quedan en `~/.local/state/llama-server/`.
 
+## Hablar con la API desde la terminal
+
+El cliente `chat-llama.py` usa `/v1/chat/completions`, conserva el historial durante la sesión, muestra la respuesta conforme se genera y al final informa tokens por segundo:
+
+```bash
+./chat-llama.py
+```
+
+También acepta una pregunta directa:
+
+```bash
+./chat-llama.py "Explica qué es la memoria KV"
+```
+
+Después de cada respuesta muestra una línea similar a:
+
+```text
+[rendimiento] generación: 28.47 tok/s · 184 tokens · 6.46 s · prompt: 312.10 tok/s (57 tokens)
+```
+
+Después de volver a ejecutar `setup-monitoring.sh`, queda instalado globalmente como `llama-chat`:
+
+```bash
+./setup-monitoring.sh
+llama-chat
+```
+
+Dentro del chat usa `/help` para consultar los comandos, `/clear` para borrar el contexto, `/multi` para mensajes de varias líneas, `/save` para guardar la conversación y `/quit` para salir. Para un servidor remoto o protegido:
+
+```bash
+LLAMA_API_URL=http://192.168.1.20:8080 LLAMA_API_KEY='tu-clave' llama-chat
+```
+
 ## Transferencia sin acceso directo al servidor
 
 Puedes comprimir el repositorio, transferir el archivo por el medio disponible y luego extraerlo en Ubuntu:
