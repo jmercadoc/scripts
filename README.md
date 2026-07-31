@@ -76,6 +76,39 @@ También quedan disponibles, dependiendo de la versión de Ubuntu: `btop`, `htop
 
 El panel detecta `nvidia-smi` o `rocm-smi`, pero los controladores deben instalarse por separado siguiendo las indicaciones del fabricante y la versión concreta de Ubuntu/GPU.
 
+## Ejecutar llama.cpp y comprobar la carga
+
+El launcher incluido muestra el progreso de carga, conserva un log y consulta `/health` hasta que el modelo esté listo:
+
+```bash
+./run-llama-server.sh --list
+./run-llama-server.sh 1
+```
+
+Al completar la carga mostrará `MODELO CARGADO` y las direcciones de la Web UI/API. El timeout predeterminado es de 15 minutos y se puede cambiar junto con el puerto:
+
+```bash
+LLAMA_STARTUP_TIMEOUT=1800 LLAMA_PORT=8081 ./run-llama-server.sh 1
+```
+
+De forma predeterminada busca tanto el ejecutable como los modelos a través del enlace simbólico `~/ia`:
+
+```text
+~/ia/llama.cpp/build/bin/llama-server
+~/ia/models/qwen3_6-35b-A3B/Qwen3.6-35B-A3B-MXFP4_MOE.gguf
+```
+
+Como escucha en `0.0.0.0`, puedes proteger la API antes de exponerla en la red local:
+
+```bash
+read -rsp 'API key: ' LLAMA_API_KEY
+echo
+export LLAMA_API_KEY
+./run-llama-server.sh 1
+```
+
+El proceso permanece en primer plano. Dentro de `tmux`, usa `Ctrl-b` y después `d` para dejarlo ejecutándose. Los logs quedan en `~/.local/state/llama-server/`.
+
 ## Transferencia sin acceso directo al servidor
 
 Puedes comprimir el repositorio, transferir el archivo por el medio disponible y luego extraerlo en Ubuntu:
