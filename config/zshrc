@@ -1,0 +1,40 @@
+# Managed by ubuntu-ai-server-scripts.
+# Coloca personalizaciones privadas o específicas del equipo en ~/.zshrc.local.
+
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+HIST_STAMPS="yyyy-mm-dd"
+HISTSIZE=50000
+SAVEHIST=50000
+
+plugins=(
+  git
+  z
+  history
+  python
+  docker
+  aws
+  extract
+  fzf
+  sudo
+  systemd
+  tmux
+  command-not-found
+  colored-man-pages
+  zsh-autosuggestions
+  zsh-syntax-highlighting
+)
+
+source "$ZSH/oh-my-zsh.sh"
+
+# Powerlevel10k abre su asistente la primera vez. Su resultado queda en este archivo.
+[[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
+
+alias lg="git log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all"
+
+# Ubuntu llama batcat/fdfind a estos programas para evitar conflictos de nombres.
+command -v batcat >/dev/null 2>&1 && alias bat='batcat'
+command -v fdfind >/dev/null 2>&1 && alias fd='fdfind'
+
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

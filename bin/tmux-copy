@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Conserva siempre la selección en el buffer de tmux y, cuando existe un
+# portapapeles gráfico en el servidor, también la copia allí.
+selection=$(cat)
+
+# tmux 3.2+ puede enviar el buffer al terminal mediante OSC 52 con -w. En
+# versiones anteriores conservamos al menos el buffer interno de tmux.
+if ! printf '%s' "$selection" | tmux load-buffer -w - 2>/dev/null; then
+  printf '%s' "$selection" | tmux load-buffer -
+fi
+
+if command -v wl-copy >/dev/null 2>&1 && [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+  printf '%s' "$selection" | wl-copy
+elif command -v xclip >/dev/null 2>&1 && [[ -n ${DISPLAY:-} ]]; then
+  printf '%s' "$selection" | xclip -selection clipboard
+elif command -v xsel >/dev/null 2>&1 && [[ -n ${DISPLAY:-} ]]; then
+  printf '%s' "$selection" | xsel --clipboard --input
+fi

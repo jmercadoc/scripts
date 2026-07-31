@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SESSION_NAME=${AI_MONITOR_SESSION:-ai-monitor}
+
+section() {
+  printf '\n\033[1;36m%s\033[0m\n' "$1"
+}
+
+gpu_once() {
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi
+  elif command -v rocm-smi >/dev/null 2>&1; then
+    rocm-smi
+  elif command -v intel_gpu_top >/dev/null 2>&1; then
+    printf '%s\n' "Intel GPU detectada. Para una vista continua ejecuta: sudo intel_gpu_top"
+  elif command -v sensors >/dev/null 2>&1; then
+    printf '%s\n' "No se detectó nvidia-smi ni rocm-smi; mostrando sensores disponibles."
+    sensors || true
+  else
+    printf '%s\n' "No se encontró una herramienta de GPU. Verifica que el driver esté instalado."
+  fi
+}
+
+llama_processes() {
+  ps -eo pid,user,%cpu,%mem,rss,etime,comm,args --sort=-%cpu \
+    | awk 'NR == 1 || tolower($0) ~ /[l]lama|[g]gml/'
+}
+
+listening_ports() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -lntp 2>/dev/null || ss -lnt
+  else
+    printf '%s\n' "No se encontró ss (paquete iproute2)."
+  fi
+}
+
+overview() {
+  clear 2>/dev/null || true
+  printf '\033[1m%s\033[0m  %s\n' "$(hostname)" "$(date --iso-8601=seconds 2>/dev/null || date)"
+  uptime
+
+  section "CPU y memoria"
+  if command -v lscpu >/dev/null 2>&1; then
+    lscpu | awk -F: '/^Model name|^CPU\(s\)|^Thread|^Core|^Socket/ {gsub(/^[ \t]+/, "", $2); printf "%-18s %s\n", $1 ":", $2}'
+  fi
+  free -h
+
+  section "Discos"
+  df -hT -x tmpfs -x devtmpfs
+
+  section "Procesos llama.cpp / GGML"
+  llama_processes
+
+  section "GPU (resumen)"
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=index,name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw \
+      --format=csv,noheader 2>/dev/null || nvidia-smi
+  elif command -v rocm-smi >/dev/null 2>&1; then
+    rocm-smi --showuse --showmemuse --showtemp 2>/dev/null || rocm-smi
+  else
+    printf '%s\n' "Sin herramienta NVIDIA/AMD detectada."
+  fi
+}
+
+dashboard() {
+  command -v tmux >/dev/null 2>&1 || { printf '%s\n' "tmux no está instalado." >&2; exit 1; }
+
+  if ! tmux has-session -t "=$SESSION_NAME" 2>/dev/null; then
+    local system_command gpu_command disk_command
+
+    if command -v btop >/dev/null 2>&1; then
+      system_command=btop
+    elif command -v htop >/dev/null 2>&1; then
+      system_command=htop
+    else
+      system_command="watch -n 2 ai-monitor overview"
+    fi
+
+    if command -v nvtop >/dev/null 2>&1; then
+      gpu_command=nvtop
+    elif command -v nvidia-smi >/dev/null 2>&1; then
+      gpu_command="watch -n 1 nvidia-smi"
+    elif command -v rocm-smi >/dev/null 2>&1; then
+      gpu_command="watch -n 2 rocm-smi"
+    else
+      gpu_command="watch -n 2 sensors"
+    fi
+
+    if command -v iostat >/dev/null 2>&1; then
+      disk_command="iostat -xz 2"
+    else
+      disk_command="watch -n 2 df -hT"
+    fi
+
+    tmux new-session -d -s "$SESSION_NAME" -n monitor "$system_command"
+    tmux split-window -t "=$SESSION_NAME:monitor" -h "$gpu_command"
+    tmux split-window -t "=$SESSION_NAME:monitor" -v "watch -n 2 'ai-monitor processes'"
+    tmux split-window -t "=$SESSION_NAME:monitor" -v "$disk_command"
+    tmux select-layout -t "=$SESSION_NAME:monitor" tiled
+  fi
+
+  if [[ -n ${TMUX:-} ]]; then
+    tmux switch-client -t "=$SESSION_NAME"
+  else
+    tmux attach-session -t "=$SESSION_NAME"
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+Uso: ai-monitor [comando]
+
+  overview    Resumen de CPU, RAM, discos, llama.cpp y GPU (predeterminado)
+  processes   Procesos relacionados con llama.cpp/GGML
+  gpu         Información detallada de la GPU
+  ports       Puertos TCP que están escuchando
+  dashboard   Panel continuo de cuatro secciones dentro de tmux
+  help        Muestra esta ayuda
+EOF
+}
+
+case ${1:-overview} in
+  overview) overview ;;
+  processes) llama_processes ;;
+  gpu) gpu_once ;;
+  ports) listening_ports ;;
+  dashboard) dashboard ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac
